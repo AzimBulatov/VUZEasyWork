@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "715670484516",
+    "project_id": "vuzeasywork-10f05",
+    "storage_bucket": "vuzeasywork-10f05.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:715670484516:android:3f8f8e68d6a29cfed6cab1",
+        "android_client_info": {
+          "package_name": "com.sample.vuzeasywork"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAG4gxEcj3D86MK-QubCEB__b0vSXmq2eo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
