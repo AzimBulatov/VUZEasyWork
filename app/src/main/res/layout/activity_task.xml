@@ -6,26 +6,13 @@
     android:layout_height="match_parent">
 
     <TextView
-        android:id="@+id/chatTitle"
+        android:id="@+id/taskTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Введите сообщение"
+        android:text="Задачи"
         android:textSize="24sp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="16dp" />
-
-    <!-- Поле для ввода сообщения -->
-    <EditText
-        android:id="@+id/messageField"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:hint="Сообщение"
-        android:minHeight="48dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
+        android:layout_marginTop="32dp"/>
 </androidx.constraintlayout.widget.ConstraintLayout>
