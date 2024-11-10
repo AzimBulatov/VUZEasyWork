@@ -23,19 +23,40 @@
             </intent-filter>
         </activity>
 
-        <!-- Register Activity -->
         <activity
             android:name=".RegisterActivity"
             android:exported="true" />
 
-        <!-- Login Activity -->
         <activity
             android:name=".LoginActivity"
             android:exported="true" />
 
-        <!-- Chat Activity -->
         <activity
             android:name=".ChatActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".ProfileActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".PasswordRecoveryMailActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".PasswordRecoveryCodeActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".PasswordRecoveryPassActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".ScheduleActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".TaskActivity"
             android:exported="true" />
 
     </application>

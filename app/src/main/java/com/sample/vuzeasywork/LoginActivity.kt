@@ -4,15 +4,16 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.google.firebase.database.*
+import com.google.firebase.auth.FirebaseAuth
 
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var emailField: EditText
     private lateinit var passwordField: EditText
-    private lateinit var database: DatabaseReference
+    private lateinit var auth: FirebaseAuth
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,8 +23,9 @@ class LoginActivity : AppCompatActivity() {
         passwordField = findViewById(R.id.passwordField)
         val loginSubmitButton: Button = findViewById(R.id.loginSubmitButton)
         val notRegisteredButton: Button = findViewById(R.id.notRegisteredButton)
+        val forgotPasswordText: TextView = findViewById(R.id.forgotPasswordText)
 
-        database = FirebaseDatabase.getInstance().getReference("users")
+        auth = FirebaseAuth.getInstance()
 
         loginSubmitButton.setOnClickListener {
             val email = emailField.text.toString().trim()
@@ -34,37 +36,28 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            authenticateUser(email, password)
+            loginUser(email, password)
         }
 
         notRegisteredButton.setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
         }
+
+        forgotPasswordText.setOnClickListener {
+            startActivity(Intent(this, PasswordRecoveryMailActivity::class.java))
+        }
     }
 
-    private fun authenticateUser(email: String, password: String) {
-        val query = database.orderByChild("email").equalTo(email)
-        query.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                if (snapshot.exists()) {
-                    for (userSnapshot in snapshot.children) {
-                        val dbPassword = userSnapshot.child("password").value.toString()
-                        if (dbPassword == password) {
-                            Toast.makeText(this@LoginActivity, "Вход выполнен!", Toast.LENGTH_SHORT).show()
-                            startActivity(Intent(this@LoginActivity, ChatActivity::class.java))
-                            finish()
-                        } else {
-                            Toast.makeText(this@LoginActivity, "Неверный пароль", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+    private fun loginUser(email: String, password: String) {
+        auth.signInWithEmailAndPassword(email, password)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    Toast.makeText(this, "Вход выполнен!", Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(this, ProfileActivity::class.java))
+                    finish()
                 } else {
-                    Toast.makeText(this@LoginActivity, "Неизвестный пользователь, зарегистрируйтесь", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Ошибка входа: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                 }
             }
-
-            override fun onCancelled(error: DatabaseError) {
-                Toast.makeText(this@LoginActivity, "Ошибка проверки пользователя", Toast.LENGTH_SHORT).show()
-            }
-        })
     }
 }
