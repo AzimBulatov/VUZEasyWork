@@ -12,8 +12,12 @@ constraintlayout = "2.2.0"
 googleGmsGoogleServices = "4.4.2"
 firebaseDatabase = "21.0.0"
 firebaseAuth = "23.1.0"
+javaMailVersion = "1.6.7"
+
 
 [libraries]
+javamail-mail = { group = "com.sun.mail", name = "android-mail", version.ref = "javaMailVersion" }
+javamail-activation = { group = "com.sun.mail", name = "android-activation", version.ref = "javaMailVersion" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

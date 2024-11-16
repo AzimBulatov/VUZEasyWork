@@ -7,12 +7,14 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 
 class RegisterActivity : AppCompatActivity() {
 
     private lateinit var emailField: EditText
     private lateinit var passwordField: EditText
     private lateinit var auth: FirebaseAuth
+    private val database = FirebaseDatabase.getInstance().reference
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +48,7 @@ class RegisterActivity : AppCompatActivity() {
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
+                    saveUserEmailToDatabase(email)
                     Toast.makeText(this, "Пользователь зарегистрирован!", Toast.LENGTH_SHORT).show()
                     startActivity(Intent(this, LoginActivity::class.java))
                     finish()
@@ -53,5 +56,10 @@ class RegisterActivity : AppCompatActivity() {
                     Toast.makeText(this, "Ошибка регистрации: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                 }
             }
+    }
+
+    private fun saveUserEmailToDatabase(email: String) {
+        val userId = auth.currentUser?.uid ?: return
+        database.child("users").child(userId).child("email").setValue(email)
     }
 }
