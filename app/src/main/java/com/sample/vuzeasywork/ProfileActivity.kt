@@ -30,6 +30,9 @@ class ProfileActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
 
+        // Реализация кнопок нижней навигационной панели
+        setupBottomNavigation()
+
         // Инициализация полей
         usernameText = findViewById(R.id.username)
         themeSwitch = findViewById(R.id.themeSwitch)
@@ -129,5 +132,25 @@ class ProfileActivity : AppCompatActivity() {
         themeSwitch.isChecked = sharedPref.getBoolean("themeSwitch", false)
         notificationSwitch.isChecked = sharedPref.getBoolean("notificationSwitch", false)
         locationSwitch.isChecked = sharedPref.getBoolean("locationSwitch", false)
+    }
+
+    private fun setupBottomNavigation() {
+        val homeButton: ImageButton = findViewById(R.id.homeButton)
+        val scheduleButton: ImageButton = findViewById(R.id.scheduleButton)
+        val profileButton: ImageButton = findViewById(R.id.profileButton)
+
+        homeButton.setOnClickListener {
+            val intent = Intent(this, ChatActivity::class.java)
+            startActivity(intent)
+        }
+
+        scheduleButton.setOnClickListener {
+            val intent = Intent(this, ScheduleActivity::class.java) // Убедитесь, что существует `ScheduleActivity`
+            startActivity(intent)
+        }
+
+        profileButton.setOnClickListener {
+            Toast.makeText(this, "Вы уже находитесь на этой странице", Toast.LENGTH_SHORT).show()
+        }
     }
 }
