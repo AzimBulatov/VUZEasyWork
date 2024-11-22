@@ -8,35 +8,43 @@ import androidx.appcompat.app.AppCompatActivity
 
 class ScheduleActivity : AppCompatActivity() {
 
+    private var userUID: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_schedule)
 
-        // Логика загрузки и отображения графика дел
-        Toast.makeText(this, "График дел пока загружен", Toast.LENGTH_SHORT).show()
+        // Загружаем UID пользователя
+        val sharedPreferences = getSharedPreferences("VUZEasyWorkPrefs", MODE_PRIVATE)
+        userUID = intent.getStringExtra("USER_UID") ?: sharedPreferences.getString("USER_UID", null)
 
-        // Связываем кнопки навигации с действиями
+        if (userUID.isNullOrEmpty()) {
+            Toast.makeText(this, "Ошибка: UID пользователя не найден", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        // Настройка навигационных кнопок
         setupNavigationButtons()
     }
 
     private fun setupNavigationButtons() {
-        // Главная страница (ChatActivity)
         val homeButton = findViewById<ImageButton>(R.id.homeButton)
         homeButton.setOnClickListener {
             val intent = Intent(this, ChatActivity::class.java)
+            intent.putExtra("USER_UID", userUID) // Передаем UID
             startActivity(intent)
         }
 
-        // График дел (ScheduleActivity) — остаемся на текущей странице
         val scheduleButton = findViewById<ImageButton>(R.id.scheduleButton)
         scheduleButton.setOnClickListener {
             Toast.makeText(this, "Вы уже находитесь на этой странице", Toast.LENGTH_SHORT).show()
         }
 
-        // Профиль (ProfileActivity)
         val profileButton = findViewById<ImageButton>(R.id.profileButton)
         profileButton.setOnClickListener {
             val intent = Intent(this, ProfileActivity::class.java)
+            intent.putExtra("USER_UID", userUID) // Передаем UID
             startActivity(intent)
         }
     }

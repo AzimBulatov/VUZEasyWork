@@ -25,13 +25,23 @@ class ProfileActivity : AppCompatActivity() {
 
     private lateinit var database: DatabaseReference
     private lateinit var auth: FirebaseAuth
+    private var userUID: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
 
-        // Реализация кнопок нижней навигационной панели
-        setupBottomNavigation()
+        // Инициализация Firebase и UID пользователя
+        auth = FirebaseAuth.getInstance()
+        val user = auth.currentUser
+
+        if (user == null) {
+            Toast.makeText(this, "Ошибка: пользователь не найден", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        userUID = user.uid
 
         // Инициализация полей
         usernameText = findViewById(R.id.username)
@@ -45,59 +55,57 @@ class ProfileActivity : AppCompatActivity() {
         changePasswordLink = findViewById(R.id.changePassword)
         logoutLink = findViewById(R.id.logout)
 
-        auth = FirebaseAuth.getInstance()
-        val user = auth.currentUser
+        usernameText.text = user.email ?: "Неизвестный пользователь"
+        database = FirebaseDatabase.getInstance().reference.child("users").child(userUID!!)
 
-        if (user != null) {
-            usernameText.text = user.email
-            database = FirebaseDatabase.getInstance().reference.child("users").child(user.uid)
+        loadUserData()
+        loadSwitchStates()
 
-            loadUserData()
-            loadSwitchStates()
-
-            themeSwitch.setOnCheckedChangeListener { _, isChecked ->
-                AppCompatDelegate.setDefaultNightMode(
-                    if (isChecked) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
-                )
-                saveSwitchState("themeSwitch", isChecked)
-            }
-
-            notificationSwitch.setOnCheckedChangeListener { _, isChecked ->
-                saveSwitchState("notificationSwitch", isChecked)
-            }
-
-            locationSwitch.setOnCheckedChangeListener { _, isChecked ->
-                saveSwitchState("locationSwitch", isChecked)
-            }
-
-            editButton.setOnClickListener {
-                userAddressField.isEnabled = true
-                universityAddressField.isEnabled = true
-            }
-
-            saveButton.setOnClickListener {
-                val userAddress = userAddressField.text.toString()
-                val universityAddress = universityAddressField.text.toString()
-
-                saveUserAddressToDatabase(userAddress)
-                saveUniversityAddressToDatabase(universityAddress)
-
-                userAddressField.isEnabled = false
-                universityAddressField.isEnabled = false
-            }
-
-            changePasswordLink.setOnClickListener {
-                startActivity(Intent(this, PasswordRecoveryMailActivity::class.java))
-            }
-
-            logoutLink.setOnClickListener {
-                auth.signOut()
-                val intent = Intent(this, MainActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK
-                startActivity(intent)
-                finish()
-            }
+        themeSwitch.setOnCheckedChangeListener { _, isChecked ->
+            AppCompatDelegate.setDefaultNightMode(
+                if (isChecked) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+            )
+            saveSwitchState("themeSwitch", isChecked)
         }
+
+        notificationSwitch.setOnCheckedChangeListener { _, isChecked ->
+            saveSwitchState("notificationSwitch", isChecked)
+        }
+
+        locationSwitch.setOnCheckedChangeListener { _, isChecked ->
+            saveSwitchState("locationSwitch", isChecked)
+        }
+
+        editButton.setOnClickListener {
+            userAddressField.isEnabled = true
+            universityAddressField.isEnabled = true
+        }
+
+        saveButton.setOnClickListener {
+            val userAddress = userAddressField.text.toString()
+            val universityAddress = universityAddressField.text.toString()
+
+            saveUserAddressToDatabase(userAddress)
+            saveUniversityAddressToDatabase(universityAddress)
+
+            userAddressField.isEnabled = false
+            universityAddressField.isEnabled = false
+        }
+
+        changePasswordLink.setOnClickListener {
+            startActivity(Intent(this, PasswordRecoveryMailActivity::class.java))
+        }
+
+        logoutLink.setOnClickListener {
+            auth.signOut()
+            val intent = Intent(this, MainActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(intent)
+            finish()
+        }
+
+        // Настройка навигации
+        setupBottomNavigation()
     }
 
     private fun loadUserData() {
@@ -121,7 +129,7 @@ class ProfileActivity : AppCompatActivity() {
 
     private fun saveSwitchState(switchId: String, isChecked: Boolean) {
         val sharedPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
-        with (sharedPref.edit()) {
+        with(sharedPref.edit()) {
             putBoolean(switchId, isChecked)
             apply()
         }
@@ -141,11 +149,13 @@ class ProfileActivity : AppCompatActivity() {
 
         homeButton.setOnClickListener {
             val intent = Intent(this, ChatActivity::class.java)
+            intent.putExtra("USER_UID", userUID)
             startActivity(intent)
         }
 
         scheduleButton.setOnClickListener {
-            val intent = Intent(this, ScheduleActivity::class.java) // Убедитесь, что существует `ScheduleActivity`
+            val intent = Intent(this, ScheduleActivity::class.java)
+            intent.putExtra("USER_UID", userUID)
             startActivity(intent)
         }
 

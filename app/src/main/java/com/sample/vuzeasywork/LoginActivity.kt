@@ -27,6 +27,7 @@ class LoginActivity : AppCompatActivity() {
 
         auth = FirebaseAuth.getInstance()
 
+        // Обработка нажатия на кнопку входа
         loginSubmitButton.setOnClickListener {
             val email = emailField.text.toString().trim()
             val password = passwordField.text.toString().trim()
@@ -39,10 +40,12 @@ class LoginActivity : AppCompatActivity() {
             loginUser(email, password)
         }
 
+        // Обработка перехода на регистрацию
         notRegisteredButton.setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
         }
 
+        // Обработка перехода на восстановление пароля
         forgotPasswordText.setOnClickListener {
             startActivity(Intent(this, PasswordRecoveryMailActivity::class.java))
         }
@@ -52,9 +55,19 @@ class LoginActivity : AppCompatActivity() {
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    Toast.makeText(this, "Вход выполнен!", Toast.LENGTH_SHORT).show()
-                    startActivity(Intent(this, ChatActivity::class.java))
-                    finish()
+                    val currentUser = auth.currentUser
+                    if (currentUser != null) {
+                        val userUID = currentUser.uid // Получаем UID пользователя
+                        Toast.makeText(this, "Вход выполнен!", Toast.LENGTH_SHORT).show()
+
+                        // Передаем UID в ChatActivity
+                        val intent = Intent(this, ChatActivity::class.java)
+                        intent.putExtra("USER_UID", userUID) // Добавляем UID в Intent
+                        startActivity(intent)
+                        finish()
+                    } else {
+                        Toast.makeText(this, "Ошибка: текущий пользователь не найден", Toast.LENGTH_SHORT).show()
+                    }
                 } else {
                     Toast.makeText(this, "Ошибка входа: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                 }
