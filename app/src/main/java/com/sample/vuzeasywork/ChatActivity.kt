@@ -216,12 +216,24 @@ class ChatActivity : AppCompatActivity() {
                 chatStage = 5
             }
             5 -> {
-                sendChatMessage("Спасибо! Мы рады помочь с вашим временем.")
-                chatStage = 6
+                if (userMessage.equals("да", ignoreCase = true)) {
+                    sendChatMessage("Чем именно вы хотели бы заниматься и что хотели бы освоить?")
+                    chatStage = 6
+                } else if (userMessage.equals("нет", ignoreCase = true)) {
+                    sendChatMessage("Спасибо! Мы рады помочь вам с распределением времени!")
+                    chatStage = 7
+                } else {
+                    sendChatMessage("Пожалуйста, ответьте \"да\" или \"нет\".")
+                }
+            }
+            6 -> {
+                sendChatMessage("Спасибо! Мы рады помочь вам с распределением времени!")
+                chatStage = 7
             }
         }
         saveChatState()
     }
+
 
     private fun containsAnyWord(input: String, keywords: List<String>): Boolean {
         return keywords.any { keyword -> input.contains(keyword, ignoreCase = true) }

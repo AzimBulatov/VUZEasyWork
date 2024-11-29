@@ -5,10 +5,18 @@ import android.os.Bundle
 import android.widget.ImageButton
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import java.text.SimpleDateFormat
+import java.util.*
 
 class ScheduleActivity : AppCompatActivity() {
 
     private var userUID: String? = null
+    private lateinit var viewPager: ViewPager2
+    private lateinit var monthAdapter: MonthAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,8 +32,49 @@ class ScheduleActivity : AppCompatActivity() {
             return
         }
 
+        // Настройка календаря
+        viewPager = findViewById(R.id.calendarViewPager)
+        setupCalendar()
+
         // Настройка навигационных кнопок
         setupNavigationButtons()
+    }
+
+    private fun setupCalendar() {
+        monthAdapter = MonthAdapter { selectedDate ->
+            showTasksForDate(selectedDate)
+        }
+        viewPager.adapter = monthAdapter
+
+        // Устанавливаем начальную позицию на текущий месяц
+        viewPager.setCurrentItem(MonthAdapter.START_POSITION, false)
+    }
+
+    private fun showTasksForDate(date: String) {
+        // Здесь предполагается, что задачи загружаются из базы данных
+        val tasks = loadTasksForDate(date)
+
+        if (tasks.isEmpty()) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(date)
+                .setMessage("Пока что задач на этот день нет")
+                .setPositiveButton("OK", null)
+                .show()
+        } else {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(date)
+                .setItems(tasks.toTypedArray(), null)
+                .setPositiveButton("OK", null)
+                .show()
+        }
+    }
+
+    private fun loadTasksForDate(date: String): List<String> {
+        // Пример задач. В реальности данные нужно загружать из базы Firebase или SQLite
+        return when (date) {
+            "2024-11-28" -> listOf("Сдать курсовую", "Пройти лекцию по математике")
+            else -> emptyList()
+        }
     }
 
     private fun setupNavigationButtons() {
