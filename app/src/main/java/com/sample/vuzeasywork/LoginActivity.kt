@@ -60,8 +60,8 @@ class LoginActivity : AppCompatActivity() {
                         val userUID = currentUser.uid // Получаем UID пользователя
                         Toast.makeText(this, "Вход выполнен!", Toast.LENGTH_SHORT).show()
 
-                        // Передаем UID в ChatActivity
-                        val intent = Intent(this, ChatActivity::class.java)
+                        // Передаем UID в HomeActivity
+                        val intent = Intent(this, HomeActivity::class.java)
                         intent.putExtra("USER_UID", userUID) // Добавляем UID в Intent
                         startActivity(intent)
                         finish()

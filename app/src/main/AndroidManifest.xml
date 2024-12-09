@@ -59,5 +59,9 @@
             android:name=".TaskActivity"
             android:exported="true" />
 
+        <activity
+            android:name=".HomeActivity"
+            android:exported="true" />
+
     </application>
 </manifest>

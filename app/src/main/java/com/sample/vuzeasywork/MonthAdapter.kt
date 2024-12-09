@@ -22,6 +22,8 @@ class MonthAdapter(private val onDateClick: (String) -> Unit) :
         )
     }
 
+    private var userUID: String? = null // UID пользователя
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MonthViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_month, parent, false)
@@ -45,6 +47,11 @@ class MonthAdapter(private val onDateClick: (String) -> Unit) :
     }
 
     override fun getItemCount(): Int = Int.MAX_VALUE
+
+    fun setUserUID(uid: String) {
+        this.userUID = uid
+        notifyDataSetChanged()
+    }
 
     private fun generateDaysInMonth(calendar: Calendar): List<Date> {
         val days = mutableListOf<Date>()

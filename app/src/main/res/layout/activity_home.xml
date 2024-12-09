@@ -5,22 +5,22 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ChatActivity">
+    tools:context=".HomeActivity">
 
     <!-- Верхняя панель с кнопками -->
     <LinearLayout
-        android:id="@+id/topButtons"
+        android:background="#F4F5F7"
+        android:id="@+id/homeTopButtons"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:background="#F4F5F7"
         android:padding="8dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
         <Button
-            android:id="@+id/planButton"
+            android:id="@+id/homePlanButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -31,7 +31,7 @@
             android:textStyle="bold" />
 
         <Button
-            android:id="@+id/gptButton"
+            android:id="@+id/homeGptButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -42,71 +42,21 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Текстовое сообщение -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/logoAndMessageContainer"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@id/topButtons"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <!-- RecyclerView для сообщений -->
+    <!-- RecyclerView для отображения информации -->
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/chatRecyclerView"
+        android:id="@+id/homeRecyclerView"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:clipToPadding="false"
-        android:padding="8dp"
+        android:padding="16dp"
         android:scrollbars="vertical"
-        app:layout_constraintBottom_toTopOf="@id/messageInputContainer"
+        app:layout_constraintTop_toBottomOf="@id/homeTopButtons"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/logoAndMessageContainer"
-        app:layout_constraintVertical_bias="0.0" />
-
-    <!-- Поле ввода сообщения -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/messageInputContainer"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="8dp"
-        app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <EditText
-            android:id="@+id/messageField"
-            android:layout_width="0dp"
-            android:layout_height="54dp"
-            android:hint="Введите сообщение"
-            android:background="@drawable/rounded_edittext"
-            android:paddingHorizontal="12dp"
-            android:textColor="#000000"
-            android:textColorHint="#6200EE"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/sendButton"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
-
-        <ImageButton
-            android:id="@+id/sendButton"
-            android:layout_width="48dp"
-            android:layout_height="54dp"
-            android:background="@drawable/send_msg"
-            android:contentDescription="Отправить сообщение"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
-    </androidx.constraintlayout.widget.ConstraintLayout>
+        app:layout_constraintBottom_toTopOf="@id/homeBottomNavigation" />
 
     <!-- Нижняя навигационная панель -->
     <LinearLayout
-        android:id="@+id/bottomNavigation"
+        android:id="@+id/homeBottomNavigation"
         android:layout_width="match_parent"
         android:layout_height="72dp"
         android:background="#F4F5F7"
@@ -181,18 +131,4 @@
                 android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/welcomeMessage"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:text="Тут вам помогут с организацией и распределением времени на учебные задачи. Для начала работы напишите Старт."
-        android:textColor="#FF000000"
-        android:textSize="26dp"
-        app:layout_constraintBottom_toBottomOf="@+id/chatRecyclerView"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/logoAndMessageContainer"
-        app:layout_constraintVertical_bias="0.2" />
 </androidx.constraintlayout.widget.ConstraintLayout>

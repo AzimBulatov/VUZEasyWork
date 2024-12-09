@@ -1,3 +1,4 @@
+// Fixed CalendarAdapter.kt
 package com.sample.vuzeasywork
 
 import android.graphics.Color
@@ -7,6 +8,10 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -15,6 +20,7 @@ class CalendarAdapter(private val onDateClick: (String) -> Unit) :
 
     private val days: List<Date> = generateDaysForMonth()
     private val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+    private val notesMap = mutableMapOf<String, Boolean>() // Map to track dates with notes
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CalendarViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -30,7 +36,7 @@ class CalendarAdapter(private val onDateClick: (String) -> Unit) :
         val dayFormat = SimpleDateFormat("dd", Locale.getDefault())
         holder.dayText.text = dayFormat.format(day)
 
-        // Выделение текущего дня
+        // Highlight current day
         if (formattedDate == currentDate) {
             holder.dayText.setBackgroundColor(
                 ContextCompat.getColor(holder.itemView.context, R.color.purple_200)
@@ -41,7 +47,14 @@ class CalendarAdapter(private val onDateClick: (String) -> Unit) :
             holder.dayText.setTextColor(Color.BLACK)
         }
 
-        // Обработчик клика
+        // Check for notes and show an indicator
+        if (notesMap[formattedDate] == true) {
+            holder.dayText.setCompoundDrawablesWithIntrinsicBounds(0, 0, R.drawable.ic_note_indicator, 0)
+        } else {
+            holder.dayText.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0)
+        }
+
+        // Handle click events
         holder.itemView.setOnClickListener {
             onDateClick(formattedDate)
         }
@@ -60,6 +73,26 @@ class CalendarAdapter(private val onDateClick: (String) -> Unit) :
             calendar.add(Calendar.DAY_OF_MONTH, 1)
         }
         return days
+    }
+
+    fun loadNotesForMonth(userUID: String) {
+        val database = FirebaseDatabase.getInstance().reference
+        val notesRef = database.child("users").child(userUID).child("notes")
+
+        notesRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                notesMap.clear()
+                snapshot.children.forEach { dateSnapshot ->
+                    val date = dateSnapshot.key ?: return@forEach
+                    notesMap[date] = true // Mark this date as having notes
+                }
+                notifyDataSetChanged()
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // Handle database error
+            }
+        })
     }
 
     class CalendarViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {

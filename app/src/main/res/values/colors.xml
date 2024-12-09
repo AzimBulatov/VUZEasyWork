@@ -7,4 +7,7 @@
     <color name="teal_700">#018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="hint_color">#808080</color> <!-- Серый цвет подсказки -->
+    <color name="dialog_text_color">#000000</color> <!-- Черный цвет текста -->
+    <color name="dialog_background_color">#F5F5F5</color> <!-- Светло-серый цвет для фона -->
 </resources>

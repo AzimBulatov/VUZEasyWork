@@ -106,6 +106,7 @@ class ProfileActivity : AppCompatActivity() {
 
         // Настройка навигации
         setupBottomNavigation()
+        setupTopButtons()
     }
 
     private fun loadUserData() {
@@ -148,7 +149,7 @@ class ProfileActivity : AppCompatActivity() {
         val profileButton: ImageButton = findViewById(R.id.profileButton)
 
         homeButton.setOnClickListener {
-            val intent = Intent(this, ChatActivity::class.java)
+            val intent = Intent(this, HomeActivity::class.java)
             intent.putExtra("USER_UID", userUID)
             startActivity(intent)
         }
@@ -161,6 +162,22 @@ class ProfileActivity : AppCompatActivity() {
 
         profileButton.setOnClickListener {
             Toast.makeText(this, "Вы уже находитесь на этой странице", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun setupTopButtons() {
+        val planButton = findViewById<Button>(R.id.planButton)
+        planButton.setOnClickListener {
+            val intent = Intent(this, ChatActivity::class.java)
+            intent.putExtra("USER_UID", userUID) // Передаем UID пользователя
+            startActivity(intent)
+        }
+
+        val gptButton = findViewById<Button>(R.id.gptButton)
+        gptButton.setOnClickListener {
+            val intent = Intent(this, TaskActivity::class.java)
+            intent.putExtra("USER_UID", userUID) // Передаем UID пользователя
+            startActivity(intent)
         }
     }
 }

@@ -2,12 +2,13 @@ package com.sample.vuzeasywork
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageButton
-import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -15,6 +16,16 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
+import org.json.JSONArray
+import org.json.JSONObject
 
 class ChatActivity : AppCompatActivity() {
 
@@ -23,19 +34,55 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var chatRecyclerView: RecyclerView
     private lateinit var chatAdapter: ChatAdapter
     private lateinit var welcomeMessage: TextView
-    private lateinit var chatLogo: ImageView
 
     private val messages = mutableListOf<Message>()
     private val database = FirebaseDatabase.getInstance().reference
     private var userUID: String? = null
     private var chatStage = 0
-    private var totalSubjects: Int = 0
-    private var remainingSubjects: Int = 0
+
+    private val apiUrl = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_chat)
 
+        try {
+            initializeUIComponents()
+        } catch (e: Exception) {
+            Log.e("ChatActivity", "Error initializing UI components: ${e.message}")
+            Toast.makeText(this, "Ошибка инициализации", Toast.LENGTH_SHORT).show()
+            finish()
+        }
+
+        loadChatState()
+        loadMessages()
+
+        sendButton.setOnClickListener {
+            val messageText = messageField.text.toString().trim()
+            if (messageText.isNotEmpty()) {
+                if (welcomeMessage.visibility == View.VISIBLE) {
+                    welcomeMessage.visibility = View.GONE
+                }
+                handleUserMessage(messageText)
+                messageField.text.clear()
+            } else {
+                Toast.makeText(this, "Введите сообщение", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+
+        setupNavigationButtons()
+        setupTopButtons()
+    }
+
+    private fun onChatMessageAdded() {
+        // Функция вызывается, когда добавляется новое сообщение
+        if (welcomeMessage.visibility == View.VISIBLE && messages.isNotEmpty()) {
+            welcomeMessage.visibility = View.GONE
+        }
+    }
+
+    private fun initializeUIComponents() {
         val sharedPreferences = getSharedPreferences("VUZEasyWorkPrefs", MODE_PRIVATE)
         userUID = intent.getStringExtra("USER_UID") ?: sharedPreferences.getString("USER_UID", null)
 
@@ -47,37 +94,301 @@ class ChatActivity : AppCompatActivity() {
 
         sharedPreferences.edit().putString("USER_UID", userUID).apply()
 
-        // Инициализация компонентов
         messageField = findViewById(R.id.messageField)
         sendButton = findViewById(R.id.sendButton)
         chatRecyclerView = findViewById(R.id.chatRecyclerView)
         welcomeMessage = findViewById(R.id.welcomeMessage)
-        chatLogo = findViewById(R.id.chatLogo)
 
-        // Настройка RecyclerView
         chatAdapter = ChatAdapter(messages)
         chatRecyclerView.layoutManager = LinearLayoutManager(this).apply {
             stackFromEnd = true
         }
         chatRecyclerView.adapter = chatAdapter
 
-        loadChatState()
-        loadMessages()
-
-        // Обработчик кнопки отправки
-        sendButton.setOnClickListener {
-            val messageText = messageField.text.toString().trim()
-            if (messageText.isNotEmpty()) {
-                if (welcomeMessage.visibility == View.VISIBLE) {
-                    welcomeMessage.visibility = View.GONE
-                    chatLogo.visibility = View.GONE
-                }
-                sendUserMessage(messageText)
-                messageField.text.clear()
+        // Загружаем сообщения и устанавливаем видимость приветствия
+        loadMessages {
+            if (messages.isNotEmpty()) {
+                welcomeMessage.visibility = View.GONE
+            } else {
+                welcomeMessage.visibility = View.VISIBLE
             }
         }
+    }
 
-        setupNavigationButtons()
+    private fun handleUserMessage(userMessage: String) {
+        saveMessage(Message(userMessage, isUser = true, style = "default"))
+
+        onChatMessageAdded()
+
+
+        when (chatStage) {
+            0 -> {
+                // Шаг 1: Приветствие и выяснение роли пользователя
+                val prompt = """
+                Создай текст сообщения для пользователя:
+                "Здравствуйте! Для начала работы сообщите, кем вы являетесь (вы студент или преподаватель)?"
+                Пиши именно то, что указано в кавычках, не добавляй ничего от себя.
+            """.trimIndent()
+
+                sendMessageToGPT(prompt) { response ->
+                    val formattedMessage = formatResponseForUser(response)
+                    saveMessage(Message(formattedMessage, isUser = false, style = "default"))
+                    chatStage = 1
+                    saveChatState()
+                }
+            }
+
+            1 -> {
+                // Шаг 2: Получение информации о количестве дисциплин
+                val role = when (userMessage.lowercase()) {
+                    "студент" -> "студента"
+                    "преподаватель" -> "преподавателя"
+                    else -> "неизвестной роли"
+                }
+
+                val prompt = """
+                Создай текст сообщения для пользователя:
+                "Вы указали, что являетесь $role, сколько у вас дисциплин?"
+                Пиши именно то, что указано в кавычках, не добавляй ничего от себя.
+            """.trimIndent()
+
+                sendMessageToGPT(prompt) { response ->
+                    val formattedMessage = formatResponseForUser(response)
+                    saveMessage(Message(formattedMessage, isUser = false, style = "default"))
+                    chatStage = 2
+                    saveChatState()
+                }
+            }
+
+            2 -> {
+                // Шаг 3: Запрос подробностей по каждой дисциплине
+                val prompt = """
+                Создай текст сообщения для пользователя:
+                "Для каждой дисциплины напишите, сколько лабораторных, практических и самостоятельных работ, а также других заданий."
+                Пиши именно то, что указано в кавычках, не добавляй ничего от себя.
+            """.trimIndent()
+
+                sendMessageToGPT(prompt) { response ->
+                    val formattedMessage = formatResponseForUser(response)
+                    saveMessage(Message(formattedMessage, isUser = false, style = "default"))
+                    chatStage = 3
+                    saveChatState()
+                }
+            }
+
+            3 -> {
+                // Шаг 4: Уточнение про дополнительные задания
+                val prompt = """
+                Создай текст сообщения для пользователя:
+                "Есть ли у вас какие-либо дополнительные задания по учебе (например, курсовая работа)?"
+                Пиши именно то, что указано в кавычках, не добавляй ничего от себя.
+            """.trimIndent()
+
+                sendMessageToGPT(prompt) { response ->
+                    val formattedMessage = formatResponseForUser(response)
+                    saveMessage(Message(formattedMessage, isUser = false, style = "default"))
+                    chatStage = 4
+                    saveChatState()
+                }
+            }
+
+            4 -> {
+                // Шаг 5: Уточнение по дополнительной деятельности
+                val prompt = if (userMessage.lowercase() == "да") {
+                    """
+                    Создай текст сообщения для пользователя:
+                    "Опишите, чем именно вы занимаетесь, в какие дни и во сколько."
+                    Пиши именно то, что указано в кавычках, не добавляй ничего от себя.
+                """.trimIndent()
+                } else {
+                    """
+                    Создай текст сообщения для пользователя:
+                    "Планируете ли вы заниматься саморазвитием?"
+                    Пиши именно то, что указано в кавычках, не добавляй ничего от себя.
+                """.trimIndent()
+                }
+
+                sendMessageToGPT(prompt) { response ->
+                    val formattedMessage = formatResponseForUser(response)
+                    saveMessage(Message(formattedMessage, isUser = false, style = "default"))
+                    chatStage = 5
+                    saveChatState()
+                }
+            }
+
+            5 -> {
+                // Шаг 6: Уточнение по саморазвитию или завершение
+                val prompt = if (userMessage.lowercase() == "да") {
+                    """
+                    Создай текст сообщения для пользователя:
+                    "Чем именно вы хотели бы заниматься и что хотели бы освоить?"
+                    Пиши именно то, что указано в кавычках, не добавляй ничего от себя.
+                """.trimIndent()
+                } else {
+                    """
+                    Создай текст сообщения для пользователя:
+                    "Спасибо за ваши ответы! Сейчас мы сформируем для вас план занятий на учебное полугодие. Для получения плана напишите \"план\"."
+                    Пиши именно то, что указано в кавычках, не добавляй ничего от себя.
+                """.trimIndent()
+                }
+
+                sendMessageToGPT(prompt) { response ->
+                    val formattedMessage = formatResponseForUser(response)
+                    saveMessage(Message(formattedMessage, isUser = false, style = "default"))
+                    chatStage = 6
+                    saveChatState()
+                }
+            }
+
+            6 -> {
+                // Шаг 7: Обработка ввода команды "план" и правок
+                val planPrompt = if (userMessage.lowercase() == "план") {
+                    """
+            На основе данных пользователя составь расписание на учебное полугодие.
+            Задачи должны быть равномерно распределены, не перегружая пользователя. Формат:
+            "07.12.2024: 'Задача 1', 'Задача 2', 'Задача 3'."
+            Пиши каждую строку с новой строки.
+        """.trimIndent()
+                } else {
+                    // Переходим в стандартный режим чата, чтобы пользователь мог задать новый вопрос
+                    val prompt = userMessage.trim()
+
+                    sendMessageToGPT(prompt) { response ->
+                        val formattedMessage = formatResponseForUser(response)
+                        saveMessage(Message(formattedMessage, isUser = false, style = "default"))
+                    }
+
+                    chatStage = 6
+                    saveChatState()
+                    return
+                }
+
+                sendMessageToGPT(planPrompt) { response ->
+                    val formattedMessage = formatResponseForUser(response)
+                    saveMessage(Message(formattedMessage, isUser = false, style = "default"))
+
+                    // Сохраняем сгенерированный план в Firebase
+                    database.child("users").child(userUID!!).child("generatedPlan").setValue(formattedMessage)
+                        .addOnFailureListener { showError("Ошибка сохранения плана в базу данных.") }
+
+                    if (userMessage.lowercase() == "план") {
+                        chatStage = 7
+                        saveChatState()
+
+                        val followUpPrompt = """
+                Создай текст сообщения для пользователя:
+                "Ваш план занятий составлен. Если вы хотите внести изменения или задать дополнительные вопросы, напишите их ниже."
+                Пиши именно то, что указано в кавычках, не добавляй ничего от себя.
+            """.trimIndent()
+
+                        sendMessageToGPT(followUpPrompt) { response ->
+                            val formattedMessage = formatResponseForUser(response)
+                            saveMessage(Message(formattedMessage, isUser = false, style = "default"))
+                        }
+                    }
+                }
+            }
+
+            7 -> {
+                // После того как план был сформирован, ИИ продолжает отвечать на вопросы и правки
+                val prompt = userMessage.trim()
+
+                sendMessageToGPT(prompt) { response ->
+                    val formattedMessage = formatResponseForUser(response)
+                    saveMessage(Message(formattedMessage, isUser = false, style = "default"))
+                }
+            }
+        }
+    }
+
+
+
+
+    // Вспомогательная функция для форматирования ответа
+    private fun formatResponseForUser(response: String): String {
+        return response.trim().replace("\n", " ")
+    }
+
+
+
+    private fun sendMessageToGPT(prompt: String, callback: (String) -> Unit) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                    .writeTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+                val messageHistory = JSONArray()
+
+                for (message in messages) {
+                    val jsonMessage = JSONObject().apply {
+                        put("role", if (message.isUser) "user" else "assistant")
+                        put("text", message.text)
+                    }
+                    messageHistory.put(jsonMessage)
+                }
+
+                val jsonMessage = JSONObject().apply {
+                    put("role", "user")
+                    put("text", prompt)
+                }
+                messageHistory.put(jsonMessage)
+
+                val jsonString = """
+                    {
+                        "modelUri": "gpt://<ваш идентификатор каталога>/yandexgpt/latest",
+                        "completionOptions": {
+                            "temperature": 0.7,
+                            "maxTokens": 2000
+                        },
+                        "messages": $messageHistory
+                    }
+                """
+
+                val body = RequestBody.create("application/json".toMediaTypeOrNull(), jsonString)
+                val request = Request.Builder()
+                    .url(apiUrl)
+                    .addHeader("Authorization", "Api-Key <ваш апи ключ>")
+                    .post(body)
+                    .build()
+
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string()
+
+                if (responseBody != null) {
+                    val jsonResponse = JSONObject(responseBody)
+                    val aiResponse = jsonResponse.optJSONObject("result")
+                        ?.optJSONArray("alternatives")
+                        ?.getJSONObject(0)
+                        ?.getJSONObject("message")
+                        ?.getString("text")
+                    if (aiResponse != null) {
+                        withContext(Dispatchers.Main) { callback(aiResponse) }
+                    } else {
+                        withContext(Dispatchers.Main) { showError("Ошибка: пустой ответ от AI.") }
+                    }
+                } else {
+                    withContext(Dispatchers.Main) { showError("Ошибка: сервер вернул пустой ответ.") }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { showError("Ошибка API: ${e.message}") }
+            }
+        }
+    }
+
+    private fun showError(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        Log.e("ChatActivity", message)
+    }
+
+    private fun saveChatState() {
+        val chatState = mapOf(
+            "chatStage" to chatStage,
+            "welcomeMessageVisible" to (welcomeMessage.visibility == View.VISIBLE)
+        )
+        database.child("users").child(userUID!!).child("chatState").setValue(chatState)
+            .addOnFailureListener { showError("Ошибка сохранения состояния чата.") }
     }
 
     private fun loadChatState() {
@@ -85,22 +396,16 @@ class ChatActivity : AppCompatActivity() {
             .addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     chatStage = snapshot.child("chatStage").getValue(Int::class.java) ?: 0
-                    totalSubjects = snapshot.child("totalSubjects").getValue(Int::class.java) ?: 0
-                    remainingSubjects = snapshot.child("remainingSubjects").getValue(Int::class.java) ?: 0
-
-                    val isWelcomeMessageVisible = snapshot.child("welcomeMessageVisible")
-                        .getValue(Boolean::class.java) ?: true
-                    welcomeMessage.visibility = if (isWelcomeMessageVisible) View.VISIBLE else View.GONE
-                    chatLogo.visibility = if (isWelcomeMessageVisible) View.VISIBLE else View.GONE
+                    welcomeMessage.visibility = if (snapshot.child("welcomeMessageVisible").getValue(Boolean::class.java) == true) View.VISIBLE else View.GONE
                 }
 
                 override fun onCancelled(error: DatabaseError) {
-                    Toast.makeText(this@ChatActivity, "Ошибка загрузки состояния чата", Toast.LENGTH_SHORT).show()
+                    showError("Ошибка загрузки состояния чата.")
                 }
             })
     }
 
-    private fun loadMessages() {
+    private fun loadMessages(onComplete: () -> Unit = {}) {
         database.child("users").child(userUID!!).child("messages")
             .addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
@@ -113,49 +418,13 @@ class ChatActivity : AppCompatActivity() {
                     }
                     chatAdapter.notifyDataSetChanged()
                     chatRecyclerView.scrollToPosition(messages.size - 1)
+                    onComplete() // Вызываем коллбэк после завершения загрузки
                 }
 
                 override fun onCancelled(error: DatabaseError) {
-                    Toast.makeText(this@ChatActivity, "Ошибка загрузки сообщений", Toast.LENGTH_SHORT).show()
+                    showError("Ошибка загрузки сообщений.")
                 }
             })
-    }
-
-    private fun saveChatState() {
-        val chatState = mapOf(
-            "chatStage" to chatStage,
-            "totalSubjects" to totalSubjects,
-            "remainingSubjects" to remainingSubjects,
-            "welcomeMessageVisible" to (welcomeMessage.visibility == View.VISIBLE)
-        )
-        database.child("users").child(userUID!!).child("chatState").setValue(chatState)
-            .addOnFailureListener {
-                Toast.makeText(this, "Ошибка сохранения состояния чата", Toast.LENGTH_SHORT).show()
-            }
-    }
-
-    private fun sendUserMessage(text: String) {
-        val userMessage = Message(
-            text = text,
-            isUser = true,
-            style = "default"
-        )
-        saveMessage(userMessage)
-        handleChatScenario(text)
-    }
-
-    private fun sendChatMessage(text: String, isWelcome: Boolean = false) {
-        val chatMessage = Message(
-            text = text,
-            isUser = false,
-            style = "default"
-        )
-        saveMessage(chatMessage)
-
-        if (isWelcome) {
-            database.child("users").child(userUID!!).child("chatState").child("welcomeMessageVisible")
-                .setValue(false)
-        }
     }
 
     private fun saveMessage(message: Message) {
@@ -163,100 +432,44 @@ class ChatActivity : AppCompatActivity() {
         chatAdapter.notifyItemInserted(messages.size - 1)
         chatRecyclerView.scrollToPosition(messages.size - 1)
         database.child("users").child(userUID!!).child("messages").push().setValue(message)
-    }
-
-    private fun handleChatScenario(userMessage: String) {
-        when (chatStage) {
-            0 -> {
-                if (containsAnyWord(userMessage, listOf("студент", "преподаватель"))) {
-                    sendChatMessage("Введите количество ваших дисциплин (напишите число).")
-                    chatStage = 1
-                } else {
-                    sendChatMessage("Пожалуйста, уточните: вы студент или преподаватель?")
-                }
-            }
-            1 -> {
-                val numberOfSubjects = userMessage.toIntOrNull()
-                if (numberOfSubjects != null && numberOfSubjects > 0) {
-                    totalSubjects = numberOfSubjects
-                    remainingSubjects = numberOfSubjects
-                    sendChatMessage("Введите название дисциплины и количество заданий по ней.")
-                    chatStage = 2
-                } else {
-                    sendChatMessage("Введите корректное количество дисциплин.")
-                }
-            }
-            2 -> {
-                if (remainingSubjects > 0) {
-                    remainingSubjects--
-                    if (remainingSubjects > 0) {
-                        sendChatMessage("Введите следующую дисциплину и количество заданий по ней.")
-                    } else {
-                        sendChatMessage("Занимаетесь ли вы чем-то дополнительно? (да/нет)")
-                        chatStage = 3
-                    }
-                }
-                saveChatState()
-            }
-            3 -> {
-                if (containsAnyWord(userMessage, listOf("да", "нет"))) {
-                    if (userMessage.equals("да", ignoreCase = true)) {
-                        sendChatMessage("Опишите занятия, их время и дни.")
-                        chatStage = 4
-                    } else {
-                        sendChatMessage("Планируете ли вы саморазвитие?")
-                        chatStage = 5
-                    }
-                } else {
-                    sendChatMessage("Уточните, вы занимаетесь чем-то дополнительно? (да/нет)")
-                }
-            }
-            4 -> {
-                sendChatMessage("Планируете ли вы саморазвитие?")
-                chatStage = 5
-            }
-            5 -> {
-                if (userMessage.equals("да", ignoreCase = true)) {
-                    sendChatMessage("Чем именно вы хотели бы заниматься и что хотели бы освоить?")
-                    chatStage = 6
-                } else if (userMessage.equals("нет", ignoreCase = true)) {
-                    sendChatMessage("Спасибо! Мы рады помочь вам с распределением времени!")
-                    chatStage = 7
-                } else {
-                    sendChatMessage("Пожалуйста, ответьте \"да\" или \"нет\".")
-                }
-            }
-            6 -> {
-                sendChatMessage("Спасибо! Мы рады помочь вам с распределением времени!")
-                chatStage = 7
-            }
-        }
-        saveChatState()
-    }
-
-
-    private fun containsAnyWord(input: String, keywords: List<String>): Boolean {
-        return keywords.any { keyword -> input.contains(keyword, ignoreCase = true) }
+            .addOnFailureListener { showError("Ошибка сохранения сообщения в базу данных.") }
     }
 
     private fun setupNavigationButtons() {
         val homeButton = findViewById<ImageButton>(R.id.homeButton)
         homeButton.setOnClickListener {
-            startActivity(Intent(this, ChatActivity::class.java))
+            val intent = Intent(this, HomeActivity::class.java)
+            intent.putExtra("USER_UID", userUID) // Передаем UID
+            startActivity(intent)
         }
 
         val scheduleButton = findViewById<ImageButton>(R.id.scheduleButton)
         scheduleButton.setOnClickListener {
             val intent = Intent(this, ScheduleActivity::class.java)
-            intent.putExtra("USER_UID", userUID)
+            intent.putExtra("USER_UID", userUID) // Передаем UID
             startActivity(intent)
         }
 
         val profileButton = findViewById<ImageButton>(R.id.profileButton)
         profileButton.setOnClickListener {
             val intent = Intent(this, ProfileActivity::class.java)
-            intent.putExtra("USER_UID", userUID)
+            intent.putExtra("USER_UID", userUID) // Передаем UID
             startActivity(intent)
         }
     }
+
+    private fun setupTopButtons() {
+        val planButton = findViewById<Button>(R.id.planButton)
+        planButton.setOnClickListener {
+            Toast.makeText(this, "Вы уже находитесь на этой странице", Toast.LENGTH_SHORT).show()
+        }
+
+        val gptButton = findViewById<Button>(R.id.gptButton)
+        gptButton.setOnClickListener {
+            val intent = Intent(this, TaskActivity::class.java)
+            intent.putExtra("USER_UID", userUID) // Передаем UID пользователя
+            startActivity(intent)
+        }
+    }
+
 }
